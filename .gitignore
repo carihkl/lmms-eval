@@ -51,3 +51,9 @@ uv.lock
 workspace/*
 .claude/*
 remote_code/*
+
+results/
+lavis
+cookies.txt
+external/
+*.ipynb

@@ -46,6 +46,8 @@ class Qwen3_VL(lmms):
         batch_size: Optional[Union[int, str]] = 1,
         use_cache=True,
         attn_implementation: Optional[str] = None,
+        resized_height: Optional[int] = None,
+        resized_width: Optional[int] = None,
         min_pixels: int = 256 * 28 * 28,
         max_pixels: int = 1605632,
         max_num_frames: int = 32,
@@ -55,11 +57,12 @@ class Qwen3_VL(lmms):
         system_prompt: Optional[str] = "You are a helpful assistant.",
         interleave_visuals: Optional[bool] = False,
         reasoning_prompt: Optional[str] = None,
+        video_sampler: Optional[str] = None,
         **kwargs,
     ) -> None:
         super().__init__()
         # Do not use kwargs for now
-        assert kwargs == {}, f"Unexpected kwargs: {kwargs}"
+        # assert kwargs == {}, f"Unexpected kwargs: {kwargs}"
 
         # Validate attention implementation
         valid_attn_implementations = [None, "flash_attention_2", "sdpa", "eager"]
@@ -75,6 +78,7 @@ class Qwen3_VL(lmms):
             raise ValueError("max_image_size is only applicable if use_custom_video_loader is True")
 
         accelerator = Accelerator()
+        eval_logger.info(f"Accelerator: {accelerator.distributed_type}")
         self.accelerator = accelerator
         if accelerator.num_processes > 1:
             self._device = torch.device(f"cuda:{accelerator.local_process_index}")
@@ -84,14 +88,16 @@ class Qwen3_VL(lmms):
             self.device_map = device_map if device_map else device
 
         # Prepare model loading arguments
-        model_kwargs = {
+        model_kwargs = kwargs.copy()
+        model_kwargs.update({
             "torch_dtype": "bfloat16",
             "device_map": self.device_map,
-        }
+        })
 
         # Add attention implementation if specified
         if attn_implementation is not None:
             model_kwargs["attn_implementation"] = attn_implementation
+        print("model_kwargs: ", model_kwargs)
 
         # check whether its an MoE model
         match = re.search(r"A\d+B", pretrained)
@@ -132,6 +138,9 @@ class Qwen3_VL(lmms):
         else:
             self._rank = 0
             self._world_size = 1
+        self.resized_height = resized_height
+        self.resized_width = resized_width
+        self.video_sampler = video_sampler
 
     @property
     def config(self):
@@ -287,18 +296,17 @@ class Qwen3_VL(lmms):
                 batched_messages.append(message)
             texts = self.processor.apply_chat_template(batched_messages, tokenize=False, add_generation_prompt=True)
             image_inputs, video_inputs = process_vision_info(batched_messages)
-            if video_inputs is not None:
-                total_frames = video_inputs[0].shape[0]
-                indices = np.linspace(0, total_frames - 1, self.max_num_frames, dtype=int)
-                # Ensure unique indices if linspace produces duplicates for few frames
-                indices = np.unique(indices)
-                # Append the last frame index if not already included
-                if total_frames - 1 not in indices:
-                    indices = np.append(indices, total_frames - 1)
-                    indices = np.unique(indices)  # Ensure uniqueness again
-                video_inputs[0] = video_inputs[0][indices]
-            padding_side = "left" if self.batch_size > 1 else "right"
-            inputs = self.processor(text=texts, images=image_inputs, videos=video_inputs, padding=True, padding_side=padding_side, return_tensors="pt")
+            # if video_inputs is not None:
+            #     total_frames = video_inputs[0].shape[0]
+            #     indices = np.linspace(0, total_frames - 1, self.max_num_frames, dtype=int)
+            #     # Ensure unique indices if linspace produces duplicates for few frames
+            #     indices = np.unique(indices)
+            #     # Append the last frame index if not already included
+            #     if total_frames - 1 not in indices:
+            #         indices = np.append(indices, total_frames - 1)
+            #         indices = np.unique(indices)  # Ensure uniqueness again
+            #     video_inputs[0] = video_inputs[0][indices]
+            inputs = self.processor(text=texts, images=image_inputs, videos=video_inputs, padding=True, return_tensors="pt")
 
             if self.device_map == "auto":
                 inputs = inputs.to("cuda")
