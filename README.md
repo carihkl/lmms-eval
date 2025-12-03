@@ -17,6 +17,9 @@
 📖 [Supported Tasks (100+)](https://github.com/EvolvingLMMs-Lab/lmms-eval/blob/main/docs/current_tasks.md) | 🌟 [Supported Models (30+)](https://github.com/EvolvingLMMs-Lab/lmms-eval/tree/main/lmms_eval/models) | 📚 [Documentation](docs/README.md)
 
 ---
+## Video Sampling
+
+This is a fork of lmms-eval repository, made to allow benchmarking of various video samplers. It has been tested on Qwen models by catching in qwen-vl-utils's fetch_video function, whereby the choice of video reader will be determined by Qwen, then the sampler will run right before the frames are retrieved. For this project, the [Minerva](https://github.com/google-deepmind/neptune) task has been added, and it is tested on egoschema as well. The video_samplers tested are uniform, fps, [D-KTS](https://github.com/ChangPtR/D-KTS), [Adaptive Keyframe Sampling](https://github.com/ncTimTang/AKS) and [Q-Frame](https://github.com/xiaomi-research/q-frame/tree/master). 
 
 ## Annoucement
 
