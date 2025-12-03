@@ -67,13 +67,20 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 For development with consistent environment:
 ```bash
-git clone https://github.com/EvolvingLMMs-Lab/lmms-eval
+git clone https://github.com/carihkl/lmms-eval.git
 cd lmms-eval
 # Recommend
 uv pip install -e ".[all]"
 # If you want to use uv sync
 # uv sync  # This creates/updates your environment from uv.lock
 ```
+
+To allow video sampling functionalities
+```bash
+pip uninstall -y qwen-vl-utils  # optional but safer
+pip install "qwen-vl-utils @ git+https://github.com/carihkl/Qwen3-VL.git@main#subdirectory=qwen-vl-utils"
+```
+
 
 To run commands:
 ```bash
@@ -84,31 +91,6 @@ To add new dependencies:
 ```bash
 uv add <package>  # Updates both pyproject.toml and uv.lock
 ```
-
-### Alternative Installation
-
-For direct usage from Git:
-```bash
-uv venv eval
-uv venv --python 3.12
-source eval/bin/activate
-# You might need to add and include your own task yaml if using this installation
-uv pip install git+https://github.com/EvolvingLMMs-Lab/lmms-eval.git
-```
-
-<details>
-<summary>Reproduction of LLaVA-1.5's paper results</summary>
-
-You can check the [environment install script](miscs/repr_scripts.sh) and [torch environment info](miscs/repr_torch_envs.txt) to **reproduce LLaVA-1.5's paper results**. We found torch/cuda versions difference would cause small variations in the results, we provide the [results check](miscs/llava_result_check.md) with different environments.
-
-</details>
-
-If you want to test on caption dataset such as `coco`, `refcoco`, and `nocaps`, you will need to have `java==1.8.0` to let pycocoeval api to work. If you don't have it, you can install by using conda
-```
-conda install openjdk=8
-```
-you can then check your java version by `java -version` 
-
 
 <details>
 <summary>Comprehensive Evaluation Results of LLaVA Family Models</summary>
@@ -138,6 +120,18 @@ Our Development will be continuing on the main branch, and we encourage you to g
 ## Usages
 
 > More examples can be found in [examples/models](examples/models)
+
+**Evaluation of Samplers on Qwen3 Model**
+```bash
+accelerate launch --num_processes=1 --main_process_port=12346 -m lmms_eval \
+    --model qwen3_vl \
+    --model_args=pretrained=Qwen/Qwen3-VL-30B-A3B-Instruct,resized_height=280,resized_width=532,attn_implementation=flash_attention_2,interleave_visuals=False,device_map=auto \
+    --video_sampler <uniform|fps|dkts|aks|qframe> \
+    --video_sampler_kwargs="num_frames=32" \
+    --tasks minerva \
+    --batch_size ${BATCH_SIZE} \
+    --log_samples \
+```
 
 **Evaluation of OpenAI-Compatible Model**
 
